@@ -1,5 +1,7 @@
 # Discrimination of multiple sclerosis using OCT images from two different centers
 
+If you use these codes please cite to our paper: https://www.sciencedirect.com/science/article/pii/S2211034823003486 
+ 
 This is a binary classification of :
 
 Multiple Sclerosis (MS)
