@@ -1,128 +1,80 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Nov  1 09:07:53 2022
+Created on Tue Nov 1 09:07:53 2022
 
-@author: Shima
+Author: Shima
+
+Description:
+This script defines a feature extraction function for OCT images using the OctRead library. 
+The extracted features include resized GCIPL (Ganglion Cell Inner Plexiform Layer) thickness maps.
+
+Inputs:
+- `file_name` (str): Path to the `.vol` file containing the OCT data.
+
+Outputs:
+- `thicknessVals_resized_GCIPL_40` (np.array): A 40x40 resized GCIPL thickness map.
 """
 
-####### Imports #############
-import scipy
-import tensorflow as tf
-import keras
+# -------------------- Imports --------------------
 import numpy as np
-import scipy as sp
-import scipy.misc as misc
-from scipy import signal
-from scipy import misc
-from struct import unpack
-import os
-import math
-import matplotlib.pyplot as plt
-from itertools import permutations 
-import itertools
-import os, glob
-import cv2 
-from os import listdir
-from os.path import isfile, join
-from skimage import data, io, filters 
-#import pynput   
-#from pynput.mouse import Controller
-from PIL import Image
-from skimage.transform import rotate
-import skimage
-import pandas as pd
-from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
-from sklearn.svm import SVC
-#from keras.optimizers import SGD
-from sklearn.metrics import confusion_matrix 
-from keras import metrics
-from sklearn.metrics import classification_report
-from keras.utils.np_utils import to_categorical
-from sklearn.metrics import roc_curve,roc_auc_score
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn import svm
-from sklearn.model_selection import cross_val_score
-from sklearn.metrics import make_scorer, accuracy_score, precision_score, recall_score, f1_score,roc_auc_score,confusion_matrix
+import cv2
+from OctRead import OctRead  # Import OctRead library for handling OCT .vol files
 
-from OctRead import OctRead
-
-
+# -------------------- Feature Extraction Function --------------------
 def feature(file_name):
-   myclass = OctRead(file_name)
-   octhdr = myclass.get_oct_hdr()
-   thicknessGrid = myclass.get_thickness_grid(octhdr)
-   sloImage = myclass.get_slo_image(octhdr)
-   BScans = myclass.get_b_scans(octhdr)
-   segmentations = myclass.get_segmentation(octhdr)
-   BScans[BScans>1e+38] = 0
-   
-   if  str(octhdr['ScanPosition'])[2:4] in 'OS':
-      sloImage = np.fliplr(sloImage)
-      
-   ######## show Boundaries on Bscan
-   Boudaries = segmentations['SegLayers']
-   
- 
-######################  Thicknessmap #####################
+    """
+    Extracts features from an OCT `.vol` file and generates a resized GCIPL thickness map.
 
-   Boudaries_0 = Boudaries[:,0,:]
-   Boudaries_2 = Boudaries[:,2,:]
-   Boudaries_4 = Boudaries[:,4,:]
-   Boudaries_5 = Boudaries[:,5,:]
-   Boudaries_6 = Boudaries[:,6,:]
-   Boudaries_8 = Boudaries[:,8,:]
-   Boudaries_14 = Boudaries[:,14,:]
-   Boudaries_15 = Boudaries[:,15,:]
-   Boudaries_1 = Boudaries[:,1,:]
+    Parameters:
+        file_name (str): Path to the `.vol` file.
 
-   bd_pts = np.zeros((BScans.shape[1],octhdr['NumBScans'],9))
-   bd_pts[:,:,0] = Boudaries_0
-   bd_pts[:,:,1] = Boudaries_2
-   bd_pts[:,:,2] = Boudaries_4
-   bd_pts[:,:,3] = Boudaries_5
-   bd_pts[:,:,4] = Boudaries_6
-   bd_pts[:,:,5] = Boudaries_8
-   bd_pts[:,:,6] = Boudaries_14
-   bd_pts[:,:,7] = Boudaries_15
-   bd_pts[:,:,8] = Boudaries_1
+    Returns:
+        np.array: 40x40 resized GCIPL thickness map.
+    """
+    # Initialize OctRead object
+    myclass = OctRead(file_name)
+    
+    # Extract data from the .vol file
+    octhdr = myclass.get_oct_hdr()  # Get OCT header
+    thicknessGrid = myclass.get_thickness_grid(octhdr)  # Get thickness grid
+    sloImage = myclass.get_slo_image(octhdr)  # Get SLO image
+    BScans = myclass.get_b_scans(octhdr)  # Get B-Scans
+    segmentations = myclass.get_segmentation(octhdr)  # Get segmentation boundaries
+    
+    # Handle invalid values in B-Scans
+    BScans[BScans > 1e+38] = 0
 
- ########## Compute thickness as distance between boundary points
-   boundaryPoints= bd_pts
-   thickness= np.diff(boundaryPoints,1,2)
-   thicknessVals = np.squeeze(thickness)*octhdr['ScaleZ']*1000
-   
-   
-   #### Rotate and flip to align with fundus
+    # Flip the SLO image for left-eye scans for consistency
+    if str(octhdr['ScanPosition'])[2:4] in 'OS':  # Check if eye is "OS" (left eye)
+        sloImage = np.fliplr(sloImage)
 
+    # -------------------- Extract Boundary Points --------------------
+    # Extract specific boundaries from the segmentation data
+    boundaries = segmentations['SegLayers']
+    boundaries_to_extract = [0, 2, 4, 5, 6, 8, 14, 15, 1]
+    
+    # Create a 3D array to store extracted boundaries
+    bd_pts = np.zeros((BScans.shape[1], octhdr['NumBScans'], len(boundaries_to_extract)))
+    for idx, boundary_index in enumerate(boundaries_to_extract):
+        bd_pts[:, :, idx] = boundaries[:, boundary_index, :]
 
-   thicknessVals = np.flip(thicknessVals,0)
-   thicknessVals = np.flip(thicknessVals,1)
-########## Flip if left eye for consistency of 'nasal' to the right side
-   if not str(octhdr['ScanPosition'])[2:4] in 'OD':
-       thicknessVals = np.flip(thicknessVals,1)   
-       
-   thicknessVals_resized_RNFL_40 = cv2.resize(thicknessVals[:,:,0],(40,40))
-   thicknessVals_resized_GCIPL_40 = cv2.resize(thicknessVals[:,:,1],(40,40))
+    # -------------------- Compute Thickness --------------------
+    # Compute thickness as the distance between consecutive boundaries
+    thickness = np.diff(bd_pts, axis=2)  # Difference between adjacent boundaries
+    thicknessVals = np.squeeze(thickness) * octhdr['ScaleZ'] * 1000  # Convert to micrometers
 
-   return thicknessVals_resized_GCIPL_40
+    # -------------------- Align Thickness Map --------------------
+    # Flip the thickness map to align it with the fundus image
+    thicknessVals = np.flip(thicknessVals, axis=0)
+    thicknessVals = np.flip(thicknessVals, axis=1)
+    
+    # If left eye (OS), flip horizontally for consistency (nasal on the right side)
+    if str(octhdr['ScanPosition'])[2:4] not in 'OD':  # If not "OD" (right eye)
+        thicknessVals = np.flip(thicknessVals, axis=1)
 
+    # -------------------- Resize and Extract GCIPL Thickness --------------------
+    # Resize GCIPL thickness map to 40x40 pixels
+    thicknessVals_resized_GCIPL_40 = cv2.resize(thicknessVals[:, :, 1], (40, 40))  # GCIPL layer (index 1)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return thicknessVals_resized_GCIPL_40
 
