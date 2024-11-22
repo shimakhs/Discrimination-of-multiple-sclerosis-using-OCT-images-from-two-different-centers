@@ -1,56 +1,74 @@
 # Discrimination of multiple sclerosis using OCT images from two different centers
 
-If you use these codes please cite to our paper: https://www.sciencedirect.com/science/article/pii/S2211034823003486 
- 
-This is a binary classification of :
+This repository contains the code for binary classification of **Multiple Sclerosis (MS)** and **Healthy Controls (HC)** using **Optical Coherence Tomography (OCT)** images. The project utilizes various machine learning algorithms and provides interpretable results through heat maps.
 
-Multiple Sclerosis (MS)
-Healthy Controls (HC)
+If you use this code, please cite our paper:  
+[Discrimination of multiple sclerosis using OCT images from two different centers](https://www.sciencedirect.com/science/article/pii/S2211034823003486).
 
-Using Machine learning algorithms:
-Support Vector Machine (SVM)
-Random Forest
-Artificial Neural Network
+## Overview
+The project focuses on:
+- **classification**: Distinguishing MS patients from healthy controls.  
+- **Machine learning algorithms**:
+  - Support Vector Machine (SVM)
+  - Random Forest (RF)
+  - Artificial Neural Network (ANN)  
+- **Interpretability**: Generating heat maps to visualize model decisions.
 
-Makes the classification results Interpretable by making Heat-Map
+---
 
+## Repository Contents
+### 1. **`OctRead.py`**
+Reads `.vol` OCT dataset files.
 
-OctRead.py
-To read .vol OCT dataset
+---
 
-Thickness_function.py:
+### 2. **`Thickness_function.py`**
+A utility function that processes OCT images to generate thickness maps. It performs the following tasks:
+1. Reads `.vol` data.
+2. Flips left-eye images to align with right-eye images.
+3. Computes thicknesses as the distance between boundary points.
+4. Rotates and flips images to align with fundus views.
+5. Generates and resizes thickness maps.
 
-It is a function that when is called:
+---
 
-1. read a .vol data
-2. flip left eyes to right ones
-3. Compute thicknesses as distance between boundary points
-4. Rotate and flip to align with fundus
-5. Make ThicknessMaps
-6. resize ThicknessMaps
+### 3. **`main_SVM.py`**
+Implements the SVM classification pipeline:
+1. Calls `Thickness_function.py` to generate vectorized thickness maps.
+2. Applies Principal Component Analysis (PCA) for dimensionality reduction.
+3. Trains an SVM classifier using a 10-fold cross-validation method.
+4. Evaluates results using metrics:
+   - Accuracy
+   - Precision
+   - Recall
+   - F1-score
+   - Confusion matrix
 
-main_SVM.py:
+---
 
-By calling the Thickness_function.py makes the vectorized thicknessMaps 
-Then it apply SVM classifier using PCA for dimenstion reducation and 10-fold cross validation method 
-Finally calculates the Accuracy, Precision, Recall, F1-score and confusion matrix to evaluate the results
+### 4. **`main_RF.py`**
+Implements the Random Forest classification pipeline:
+1. Calls `Thickness_function.py` to generate vectorized thickness maps.
+2. Uses grid search to identify optimal RF parameters.
+3. Trains the RF classifier using a 10-fold cross-validation method.
+4. Evaluates results based on accuracy.
 
-main_RF.py:
+---
 
-By calling the Thickness_function.py makes the vectorized thicknessMaps 
-Then it apply RF classifier using grid-search method to find appropriate parameters and and 10-fold cross validation method 
-Finally calculates the Accuracy to evaluate the results
+### 5. **`heat-map.py`**
+Generates interpretability results using occlusion sensitivity:
+1. Calls `Thickness_function.py` to generate vectorized thickness maps.
+2. Trains an SVM classifier on the training dataset.
+3. Applies a moving black mask (10×10 pixels) to the test set to sweep across the image.
+4. Calculates accuracy for each masked region.
+5. Regenerates a heat map by mapping accuracy values back to the original image size.
 
-heat-map.py: ### Using Occlusion Sensitivity
+---
 
-By calling the Thickness_function.py makes the vectorized thicknessMaps 
-Then:
-1. Train the SVM classifier using train set dataset
-2. A black mask with the size of 10×10 pixels moves on the test set with a single step to sweep the whole image. (The locations of the pixels covered by the mask are transferred to vector-shaped positions) 
-3. The masked vector is sent as input to the model and the accuracy is calculated.
-4. The interpretability is shown by regenerating the occlusion with the original image size, with the value of accuracy in the location of each pixel (called the heat map)
-
-
-
-
+## Usage
+1. Preprocess OCT data using `OctRead.py` and `Thickness_function.py`.
+2. Train and evaluate classifiers using:
+   - `main_SVM.py` for SVM.
+   - `main_RF.py` for Random Forest.
+3. Visualize results and interpretability using `heat-map.py`.
 
